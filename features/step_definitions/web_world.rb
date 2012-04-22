@@ -16,7 +16,6 @@ Then /^I should see "([^\"]*)"$/ do |content|
 end
 
 def add_to_web_world(path, content)
-  
   @web_world ||= Rack::Builder.new
   
   kill_running_server
@@ -29,7 +28,9 @@ def add_to_web_world(path, content)
   server.pid_file= "tmp/pids/thin.pid"
   server.log_file= "log/thin.log"
 
+  # puts "STARTING"
   @pid = fork {server.start}
+  sleep 2 # better way?
   
 end
 
@@ -38,11 +39,11 @@ After('@adds_world_wide_web') do |scenario|
 end
 
 def kill_running_server
+  # puts "KILLING"
   if @pid
     Process.kill("INT", @pid)
     Process.wait(@pid)
+    # puts "KILLED"
     @pid = nil
   end
 end
-
-        

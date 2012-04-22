@@ -4,10 +4,10 @@ I want to be able to run command files writen in a DSL
 
 Background:
   Given a domain class "Event" with attributes "name", "f"
-
+    
 @adds_world_wide_web
-Scenario: Basic case
-  Given the following strategy file "local_newspaper.ps":
+Scenario: Simple HTML document, strategy using XPath navigation
+  Given the following strategy file "local_paper.str":
   """
   new_strategy "UPCOMING_EVENT_PAGE" do
     
@@ -20,10 +20,10 @@ Scenario: Basic case
 
   """
   And the following command file:
-    """
-    digest "http://localhost:8080/newspaper/this_weekend/article1", "UPCOMING_EVENT_PAGE"
-    """
-    # LOCAL_NEWSPAPER.UPCOMING_EVENT_PAGE
+  """
+  digest "http://localhost:8080/newspaper/this_weekend/article1", "UPCOMING_EVENT_PAGE"
+  """
+  # LOCAL_NEWSPAPER.UPCOMING_EVENT_PAGE
   And a web world where a GET to "/newspaper/this_weekend/article1" returns
   """
   <html>
@@ -37,6 +37,39 @@ Scenario: Basic case
   #   }
   When the commands are run
   Then there should be an Event with attribute values "name": "Laid back space rock - udder delight!"
+  
+@adds_world_wide_web
+Scenario: HTML document with DOM-manipulating Javascript, strategy using DOM navigation
+  Given the following strategy file "local_paper.str":
+  """
+  new_strategy "EVENT_PAGE_WITH_WEIRD_JAVASCRIPT_ACTIONS" do
+
+    requires_page_render
+
+    create "Event", {
+      "name" => "//title"
+    }
+  end
+  """
+  And the following command file:
+  """
+  digest "http://localhost:8080/event/page/with/javascript/manipulation", "EVENT_PAGE_WITH_WEIRD_JAVASCRIPT_ACTIONS"
+  """
+  And a web world where a GET to "/event/page/with/javascript/manipulation" returns
+  """
+  <script type='text/javascript'>
+  function add_title(txt){
+    document.title = txt;
+  }
+  </script>
+  <html>
+    <body onload="add_title('The Funky Monkeys, Tonight!');">
+      <title></title>
+    </body>
+  </html>
+  """
+  When the commands are run
+  Then there should be an Event with attribute values "name": "The Funky Monkeys, Tonight!"
 
 
 

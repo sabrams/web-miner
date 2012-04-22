@@ -3,6 +3,7 @@ require 'nokogiri'
 require 'open-uri'
 require 'CSV'
 require 'ruby-debug'
+require 'capybara'
 
 Given /^the following strategy file "([^\"]*)":$/ do |arg1, string|
   strategy_files << create_temp_file(arg1, string)
@@ -102,11 +103,16 @@ module MinerStrategy
 
       module ClassMethods
         def update_resource(url)
-          @res = "FDLKJHFDLKJHFDLKJHFDLKJFHDLKJDFSH"
+          # todo: deal with browser, driver options - modularize?
+          Capybara.register_driver :selenium do |app|
+            Capybara::Selenium::Driver.new(app, :browser => :chrome)
+          end
+          @session = Capybara::Session.new(:selenium)
+          @session.visit(url)
         end
         
         def get_value(path)
-          return "IS IT ANYTHING YET?"
+          @session.find(:xpath, path).text
         end
       end
     end
@@ -125,8 +131,7 @@ module MinerStrategy
         end
 
         def get_value(path)
-          # return @res.xpath('//title').first.text
-          return @res.xpath('//title[1]/text()').text
+          return @res.xpath(path).text
         end
       end
     end
