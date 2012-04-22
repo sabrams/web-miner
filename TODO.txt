@@ -1,1 +1,2 @@
 - namespace strategies by file/directoty when loaded
+- todo: deal with browser, driver options - modularize?; particularly, add headless kit with javascript functionality
