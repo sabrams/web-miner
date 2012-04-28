@@ -4,22 +4,25 @@ I want to be able to run command files writen in a DSL
 
 Background:
   Given a domain class "Event" with attributes "name", "f"
+  And web-miner is configured to load strategies from "strat_dir"
+  And web-miner is configured to load commands from "command_dir"
     
 @adds_world_wide_web
+@sandbox
 Scenario: Simple HTML document, strategy using XPath navigation
-  Given the following strategy file "local_paper.str":
+  Given the following strategy file "strat_dir/local_paper.str":
   """
   new_strategy "UPCOMING_EVENT_PAGE" do
     
     requires_simple_get
     
     create "Event", {
-      "name" => "//title"
+      "name" => "//title/text()"
       }
   end
 
   """
-  And the following command file:
+  And the following command file "command_dir/process_local_paper.cmd":
   """
   digest "http://localhost:8080/newspaper/this_weekend/article1", "UPCOMING_EVENT_PAGE"
   """
@@ -40,18 +43,18 @@ Scenario: Simple HTML document, strategy using XPath navigation
   
 @adds_world_wide_web
 Scenario: HTML document with DOM-manipulating Javascript, strategy using DOM navigation
-  Given the following strategy file "local_paper.str":
+  Given the following strategy file "strat_dir/local_paper.str":
   """
   new_strategy "EVENT_PAGE_WITH_WEIRD_JAVASCRIPT_ACTIONS" do
 
     requires_page_render
 
     create "Event", {
-      "name" => "//title"
+      "name" => "//title/text()"
     }
   end
   """
-  And the following command file:
+  And the following command file "command_dir/process_local_paper.cmd":
   """
   digest "http://localhost:8080/event/page/with/javascript/manipulation", "EVENT_PAGE_WITH_WEIRD_JAVASCRIPT_ACTIONS"
   """
@@ -70,7 +73,42 @@ Scenario: HTML document with DOM-manipulating Javascript, strategy using DOM nav
   """
   When the commands are run
   Then there should be an Event with attribute values "name": "The Funky Monkeys, Tonight!"
-
+  
+@adds_world_wide_web
+Scenario: RSS feed with list of elements needed
+  Given the following strategy file "strat_dir/book_worm_rss.str":
+  """
+  new_strategy "BOOK_WORM_RSS" do
+    
+    requires_simple_get
+    
+    create_set "//rss/events/event", "Event", {
+      "name" => ('.//title/text()')
+      }
+  end
+  """
+  And the following command file "command_dir/process_book_worm_rss.cmd":
+  """
+    digest "http://localhost:8080/book/worm/rss", "BOOK_WORM_RSS"
+  """
+  And a web world where a GET to "/book/worm/rss" returns
+  """
+  <?xml version="1.0" encoding="UTF-8"?>
+    <rss version="0.92">
+     <events>
+      <event>
+        <title>Tonight at Bennighans</title>
+      </event>
+      <event>
+        <title>Tonight at Joes</title>
+      </event>
+     </events>
+    </rss>
+  </xml>
+  """
+  When the commands are run
+  Then there should be an Event with attribute values "name": "Tonight at Bennighans"
+  
 
 
 
