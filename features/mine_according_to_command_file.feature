@@ -8,7 +8,7 @@ Background:
   And web-miner is configured to load commands from "command_dir"
     
 @adds_world_wide_web
-@sandbox
+@creates_test_directories
 Scenario: Simple HTML document, strategy using XPath navigation
   Given the following strategy file "strat_dir/local_paper.str":
   """
@@ -42,6 +42,7 @@ Scenario: Simple HTML document, strategy using XPath navigation
   Then there should be an Event with attribute values "name": "Laid back space rock - udder delight!"
   
 @adds_world_wide_web
+@creates_test_directories
 Scenario: HTML document with DOM-manipulating Javascript, strategy using DOM navigation
   Given the following strategy file "strat_dir/local_paper.str":
   """
@@ -75,6 +76,7 @@ Scenario: HTML document with DOM-manipulating Javascript, strategy using DOM nav
   Then there should be an Event with attribute values "name": "The Funky Monkeys, Tonight!"
   
 @adds_world_wide_web
+@creates_test_directories
 Scenario: RSS feed with list of elements needed
   Given the following strategy file "strat_dir/book_worm_rss.str":
   """
@@ -108,6 +110,7 @@ Scenario: RSS feed with list of elements needed
   """
   When the commands are run
   Then there should be an Event with attribute values "name": "Tonight at Bennighans"
+  And there should be an Event with attribute values "name": "Tonight at Joes"
   
 
 

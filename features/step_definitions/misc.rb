@@ -4,16 +4,15 @@ require 'open-uri'
 require 'CSV'
 require 'ruby-debug'
 require 'capybara'
+require 'fileutils'
 
 module WebMiner::Context
   def add_strategy_directory(name)
-    create_directory_if_not_exists(name)
     @strat_dirs ||= []
     @strat_dirs << name
   end
   
   def add_command_directory(name)
-    create_directory_if_not_exists(name)
     @command_dirs ||= []
     @command_dirs << name
   end
@@ -68,12 +67,14 @@ def web_miner_session
   @web_miner_instance ||= WebMinerSession.new
 end
 
-Given /^web\-miner is configured to load strategies from "([^\"]*)"$/ do |dir|
-  web_miner_session.add_strategy_directory(dir)
+Given /^web\-miner is configured to load strategies from "([^\"]*)"$/ do |dir_name|
+  create_directory(dir_name)
+  web_miner_session.add_strategy_directory(dir_name)
 end
 
-Given /^web\-miner is configured to load commands from "([^\"]*)"$/ do |dir|
-  web_miner_session.add_command_directory(dir)
+Given /^web\-miner is configured to load commands from "([^\"]*)"$/ do |dir_name|
+  create_directory(dir_name)
+  web_miner_session.add_command_directory(dir_name)
 end
 
 Given /^the following (?:strategy|command) file "([^\"]*)":$/ do |filename, content|
@@ -89,12 +90,8 @@ end
 #   command_files << create_temp_file('command_file_', string)
 # end
 
-# THIS IS ACTUALLY WHERE IT IS FAILING
 When /^the commands are run$/ do
   web_miner_session.run
-    # (strategy_files|command_files).each do |f|
-    #   eval(File.read(f))
-    # end
 end
 
 # Given(/^a domain class "([^\"]*)" (#{ATTRIBUTES})$/) do |name, attributes|
@@ -140,16 +137,10 @@ Then (/^there should be an? ([\S]*) (#{ATTRIBUTE_VALUES})$/) do |class_name, att
   raise "object was not found in the results" if !found
 end
 
-def strategy_files
-  @strategy_files ||= []
-end
-
-def command_files
-  @command_files ||= []
-end
-
-def create_directory_if_not_exists(name)
-  Dir.mkdir(name) unless File.exists?(name)
+def create_directory(name)
+  Dir.mkdir(name)
+  @created_dirs ||= []
+  @created_dirs << name
 end
 
 def create_file(name, content)
@@ -163,4 +154,10 @@ def create_temp_file(base_name, content)
   return file
 end
 
+After('@creates_test_directories') do |scenario|
+  delete_test_data_directories
+end
 
+def delete_test_data_directories  
+  @created_dirs.each {|dir| FileUtils.rm_rf dir}
+end
