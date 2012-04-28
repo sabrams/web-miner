@@ -2,10 +2,21 @@ Feature:
 In order to allow a quick creation of a web mining strategy
 I want to be able to run command files writen in a DSL 
 
+Synopsis:
+require web-miner
+
+web_miner = WebMiner.new
+web_miner.add_strategy_directory("your_strategies")
+web_miner.add_command_directory("your_commands")
+web_miner.run
+
+your_results = web_miner.results
+
 Background:
   Given a domain class "Event" with attributes "name", "f"
-  And web-miner is configured to load strategies from "strat_dir"
-  And web-miner is configured to load commands from "command_dir"
+  And a WebMiner instance
+  And that WebMiner is configured to load strategies from "strat_dir"
+  And that WebMiner is configured to load commands from "command_dir"
     
 @adds_world_wide_web
 @creates_test_directories
@@ -38,7 +49,7 @@ Scenario: Simple HTML document, strategy using XPath navigation
   # digest {
   #   "http://localhost:8080/newspaper/this_weekend/article1" => "UPCOMING_EVENT_PAGE"
   #   }
-  When the commands are run
+  When the web miner runs its commands
   Then there should be an Event with attribute values "name": "Laid back space rock - udder delight!"
   
 @adds_world_wide_web
@@ -72,7 +83,7 @@ Scenario: HTML document with DOM-manipulating Javascript, strategy using DOM nav
     </body>
   </html>
   """
-  When the commands are run
+  When the web miner runs its commands
   Then there should be an Event with attribute values "name": "The Funky Monkeys, Tonight!"
   
 @adds_world_wide_web
@@ -108,7 +119,7 @@ Scenario: RSS feed with list of elements needed
     </rss>
   </xml>
   """
-  When the commands are run
+  When the web miner runs its commands
   Then there should be an Event with attribute values "name": "Tonight at Bennighans"
   And there should be an Event with attribute values "name": "Tonight at Joes"
   

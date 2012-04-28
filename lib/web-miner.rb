@@ -1,11 +1,59 @@
-module WebMiner
+module DSL
+  def create(class_name, attr_map)
+    @classes_to_create_with_mappings ||= {}
+    @classes_to_create_with_mappings[class_name] = attr_map
+  end
 
-
+  def create_set(set_path, class_name, attr_map)
+    @create_set_mappings ||= {}
+    @create_set_mappings[set_path] ||= {}
+    @create_set_mappings[set_path][class_name] ||= []
+    @create_set_mappings[set_path][class_name] << attr_map
+  end
+      
+  def new_strategy(name, &block)
+    @strategies ||= {}
+    @strategies[name] = MinerStrategy.new(name, &block)
+  end
+  
+  # namespace within module to separate this method? (was MinerCommandDsl)
+  def digest(url, strategy_name)
+    @results ||= []
+    @results << @strategies[strategy_name].run(url) if @strategies
+  end
+  
+  def results
+    @results
+  end
 end
 
-module MinerStrategy
+class WebMiner
+  include DSL
+  
+  def add_strategy_directory(name)
+    @strat_dirs ||= []
+    @strat_dirs << name
+  end
+
+  def add_command_directory(name)
+    @command_dirs ||= []
+    @command_dirs << name
+  end
+
+  def run
+    (@strat_dirs).each do |dir|
+      Dir.glob("#{dir}**/*.str").entries.each { |f| eval(File.read(f))}      
+    end
+
+    (@command_dirs).each do |dir|
+      Dir.glob("#{dir}**/*.cmd").entries.each { |f| eval(File.read(f))}      
+    end
+  end
+end
+
+module MinerStrategyTemplates
   module Http
-    
+
     # todo: analysis of content could determine proper parser, but need exceptions (like tendency for rss feeds to simply say xml instead of xml/rss)
     module Simple
 
@@ -22,17 +70,17 @@ module MinerStrategy
         def get_value(path)
           return @res.xpath(path).to_s
         end
-        
+
         def get_nodes(path)
           return @res.xpath(path)
         end
-        
+
         def get_value_from(input, path)
           return input.xpath(path).to_s
         end
       end
     end
-    
+
     module Browser
       def requires_page_render
         extend ClassMethods
@@ -51,13 +99,14 @@ module MinerStrategy
         end
       end
     end
-    
+
   end
 end
 
-class Miner
-  include MinerStrategy::Http::Browser
-  include MinerStrategy::Http::Simple
+class MinerStrategy
+  include MinerStrategyTemplates::Http::Browser
+  include MinerStrategyTemplates::Http::Simple
+  include DSL
 
   def update_resource(url)
     raise NotImplementedError, "The strategy needs to know to proper way to load a resource"
@@ -66,8 +115,6 @@ class Miner
   def get_value(path)
     raise NotImplementedError, "The strategy needs to know to proper way to load a resource"
   end
-
-  # include Http::SimpleGet
 
   def initialize(my_name, &block)
     # todo: change this error type, write test        
@@ -79,7 +126,7 @@ class Miner
   def something_to_create?
     @classes_to_create_with_mappings || @create_set_mappings     
   end
-  
+
   def run(url)
     results = []
     update_resource url

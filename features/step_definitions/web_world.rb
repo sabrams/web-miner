@@ -20,7 +20,7 @@ def add_to_web_world(path, content)
   
   kill_running_server
   @web_world.map path do
-    run Proc.new {|env| [200, {"Content-Type" => "text/html"}, content] } #return [200, {"Content-Type" => "text/html"}, ["contentHELLO"]]
+    run Proc.new {|env| [200, {"Content-Type" => "text/html"}, content] }
   end
 
   server = Thin::Server.new('0.0.0.0', 8080, @web_world)
