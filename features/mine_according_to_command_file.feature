@@ -6,9 +6,8 @@ Synopsis:
 require web-miner
 
 web_miner = WebMiner.new
-web_miner.add_strategy_directory("your_strategies")  # each file ends with .str or .str.rb
-web_miner.add_command_directory("your_commands") # each file ends with .str or .cmd.rb
-web_miner.run
+web_miner.load_strategies_from("your_strategies")  # each file ends with .str or .str.rb. 
+web_miner.run_commands_in("your_commands") # each file ends with .str or .cmd.rb
 
 your_results = web_miner.results
 
