@@ -1,25 +1,43 @@
+require 'nokogiri'
+require 'open-uri'
+require 'capybara'
+require 'find'
+
 module DSL
-  def create(class_name, attr_map)
+  def create(class_name, attr_map, &block)
     @classes_to_create_with_mappings ||= {}
-    @classes_to_create_with_mappings[class_name] = attr_map
+    @classes_to_create_with_mappings[class_name] = [attr_map, block]
   end
 
-  def create_set(set_path, class_name, attr_map)
+  def create_set(set_path, class_name, attr_map, &block)
     @create_set_mappings ||= {}
     @create_set_mappings[set_path] ||= {}
     @create_set_mappings[set_path][class_name] ||= []
-    @create_set_mappings[set_path][class_name] << attr_map
+    @create_set_mappings[set_path][class_name] << [attr_map, block]
   end
       
   def new_strategy(name, &block)
+    puts "path is, you know, #{@relative_path}"
     @strategies ||= {}
-    @strategies[name] = MinerStrategy.new(name, &block)
+    # by passing self in, strategies have access to any other strategies loaded by "self" at runtime
+    new_strat = MinerStrategy.new(self, name, @relative_path, &block)
+    @strategies[new_strat.name] = new_strat
+  end
+  
+  # todo: review this - not thread safe, at least! (but so what)
+  def set_relative_path(path)
+    @relative_path = path
+  end
+  
+  def strategies
+    @strategies
   end
   
   # namespace within module to separate this method? (was MinerCommandDsl)
   def digest(url, strategy_name)
     @results ||= []
     @results << @strategies[strategy_name].run(url) if @strategies
+    @results.flatten!
   end
   
   def results
@@ -27,33 +45,67 @@ module DSL
   end
 end
 
+class WebMinerHash < Hash
+  def method_missing(m, *args, &block)
+    s = m.to_s
+    if s.end_with?("=")
+      self[s.chomp("=")]=args.first
+      return
+    end
+    super
+  end
+end
+
+# class WebMinerBinding
+#   include DSL
+#   def initialize(relative_path)
+#     set_relative_path(relative_path)
+#   end
+# def get_binding
+  # return binding()
+# end  
+# 
+# end
+
 class WebMiner
-  include DSL
+  include DSL #todo take this include out (split DSL module)  
   
-  def add_strategy_directory(name)
-    @strat_dirs ||= []
-    @strat_dirs << name
+  def get_binding
+    return binding()
+  end
+  
+  #recursively load all strategy files ending with .str or .str.rb
+  def load_strategies_from(dir_name)
+    
+    # y.relative_path_from(z).to_s.chomp y.basename.to_s
+    glob_exprs = [File.join("#{dir_name}**/**", "*.str"), File.join("#{dir_name}**/**", "*.str.rb")]
+    glob_exprs.each do |expr|
+      Dir.glob(expr).entries.each do |f|         
+        puts "here well #{File.split(f)}"
+        relative_path = File.split(f)[0]
+        relative_path.slice! (dir_name+File::SEPARATOR)
+        puts "here its #{relative_path}"
+        relative_path = relative_path.gsub(File::SEPARATOR, ".") + "."
+        puts "rel path is  #{relative_path}"        
+        
+        set_relative_path(relative_path)
+        eval(File.read(f), get_binding)
+      end
+    end
   end
 
-  def add_command_directory(name)
-    @command_dirs ||= []
-    @command_dirs << name
-  end
-
-  def run
-    (@strat_dirs).each do |dir|
-      Dir.glob("#{dir}**/*.str").entries.each { |f| eval(File.read(f))}      
-    end
-
-    (@command_dirs).each do |dir|
-      Dir.glob("#{dir}**/*.cmd").entries.each { |f| eval(File.read(f))}      
-    end
+  #recursively run all command files ending with .cmd or .cmd.rb
+  def run_commands_in(dir_name)
+    glob_exprs = [File.join("#{dir_name}**/**", "*.cmd"), File.join("#{dir_name}**/**", "*.cmd.rb")]
+    glob_exprs.each do |expr|
+      Dir.glob(expr).entries.each { |f| eval(File.read(f))}      
+    end    
   end
 end
 
 module MinerStrategyTemplates
   module Http
-
+    
     # todo: analysis of content could determine proper parser, but need exceptions (like tendency for rss feeds to simply say xml instead of xml/rss)
     module Simple
 
@@ -62,7 +114,6 @@ module MinerStrategyTemplates
       end
 
       module ClassMethods
-
         def update_resource(url)
           @res = Nokogiri::HTML(open(url))
         end
@@ -81,9 +132,23 @@ module MinerStrategyTemplates
       end
     end
 
+    
+    module RSS
+      def is_rss
+        extend ClassMethods
+      end
+      
+      module ClassMethods
+        include Simple::ClassMethods
+      end
+    end
     module Browser
       def requires_page_render
         extend ClassMethods
+        
+        def update_resource(url)
+          @res = Nokogiri::XML(open(url))
+        end
       end
 
       module ClassMethods
@@ -106,6 +171,7 @@ end
 class MinerStrategy
   include MinerStrategyTemplates::Http::Browser
   include MinerStrategyTemplates::Http::Simple
+  include MinerStrategyTemplates::Http::RSS
   include DSL
 
   def update_resource(url)
@@ -116,12 +182,22 @@ class MinerStrategy
     raise NotImplementedError, "The strategy needs to know to proper way to load a resource"
   end
 
-  def initialize(my_name, &block)
+  #This will always return an array of results objects
+  def run_strategy(url, strategy_name)
+    @context.strategies[strategy_name].run(url) if @context.strategies
+  end
+  
+  def initialize(context, my_name, namespace, &block)
     # todo: change this error type, write test        
-    @my_name = my_name # useful?
+    @my_name = namespace + my_name
+    @context = context
     instance_eval(&block)
     raise NotImplementedError, "The strategy needs at least one model to create. Use the 'create' or 'create_set' command to declare what models should be created." if !something_to_create?
   end  
+  
+  def name
+    @my_name
+  end
 
   def something_to_create?
     @classes_to_create_with_mappings || @create_set_mappings     
@@ -134,11 +210,12 @@ class MinerStrategy
     # todo: bring these in to some component of DSL, not general run
     # create
     if @classes_to_create_with_mappings
-      @classes_to_create_with_mappings.each do |class_name, attr_map|
+      @classes_to_create_with_mappings.each do |class_name, attr_map_and_block|
         attrs = {}
-        attr_map.each {|name, path| attrs[name] = get_value(path)}
+        attr_map_and_block.first.each {|name, path| attrs[name] = get_value(path)}
         res = eval(class_name).new
         attrs.each {|name, value| res.send("#{name}=", value)}
+        attr_map_and_block.last.call(res) if attr_map_and_block.last
         results << res
       end
     end
@@ -146,16 +223,17 @@ class MinerStrategy
     if @create_set_mappings
       @create_set_mappings.each do |set_path, mappings|
         mappings.each do |class_name, attr_map_array|
-          attr_map_array.each do |attr_map|
+          attr_map_array.each do |attr_map_and_block|
             attrs = {}
             multi_object_data = get_nodes(set_path)
             multi_object_data.each do |object_data|
               attrs = {}
-              attr_map.each do |name, path|
+              attr_map_and_block.first.each do |name, path|
                 attrs[name] = get_value_from(object_data, path)
               end
               res = eval(class_name).new
               attrs.each {|name, value| res.send("#{name}=", value)}
+              attr_map_and_block.last.call(res) if attr_map_and_block.last
               results << res
             end
           end
