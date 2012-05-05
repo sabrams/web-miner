@@ -17,7 +17,7 @@ Background:
     
 @adds_world_wide_web
 @creates_test_directories
-Scenario: Simple HTML document, create a custom object from a strategy using XPath navigation
+Scenario: Process a simple HTML document, creating a custom object from a strategy using XPath navigation
   Given the following strategy file "strat_dir/local_paper.str":
   """
   new_strategy "UPCOMING_EVENT_PAGE" do

@@ -37,14 +37,23 @@ module DSL
     @strategies
   end
   
+  #This will always return an array of results objects
+  def run_strategy(url, strategy_name)
+    results = []
+    if strategies && strategies[strategy_name]
+      results << strategies[strategy_name].run(url) 
+      results.flatten!
+    else
+      raise NotImplementedError, "#{strategy_name} strategy does not exist, options are: #{strategies ? "EMPTY" : strategies.keys}"
+    end
+    results        
+  end
+  
   # namespace within module to separate this method? (was MinerCommandDsl)
   def digest(url, strategy_name)
     @results ||= []
-    if @strategies && @strategies[strategy_name]
-      @results << @strategies[strategy_name].run(url) 
-    else
-      raise NotImplementedError, "#{strategy_name} strategy does not exist, options are: #{@strategies.keys}"
-    end
+    @results << run_strategy(url, strategy_name)
+    # debugger
     @results.flatten!
   end
   
@@ -75,7 +84,7 @@ class WebMiner
   def load_strategies_from(dir_name)
     glob_exprs = [File.join("#{dir_name}**/**", "*.str"), File.join("#{dir_name}**/**", "*.str.rb")]
     glob_exprs.each do |expr|
-      Dir.glob(expr).entries.each do |f| 
+      Dir.glob(expr).entries.each do |f|
         relative_path = File.split(f)[0]
         # slice twice to cover strategies at top level and nested strategies both
         relative_path.slice! (dir_name)
@@ -175,10 +184,9 @@ class MinerStrategy
   def get_value(path)
     raise NotImplementedError, "The strategy needs to know to proper way to load a resource"
   end
-
-  #This will always return an array of results objects
-  def run_strategy(url, strategy_name)
-    @context.strategies[strategy_name].run(url) if @context.strategies
+    
+  def strategies
+    @context.strategies if @context
   end
   
   def initialize(context, my_name, namespace, &block)
