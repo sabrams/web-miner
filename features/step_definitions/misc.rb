@@ -7,9 +7,9 @@ Given /^a WebMiner instance$/ do
   web_miner
 end
 
+
 Then /^there should be a strategy called "([^\"]*)"$/ do |expected_name|
   wm = web_miner
-  debugger
   web_miner.strategies.should_not eql nil
   web_miner.strategies[expected_name].should_not eql nil
 end
@@ -22,8 +22,8 @@ Given /^the following (?:strategy|command) file "([^\"]*)":$/ do |filename, cont
   create_file(filename, content)
 end
 
-When /^the WebMiner runs commands from "([^\"]*)"$/ do |dir_name|
-  web_miner.run_commands_in dir_name
+When /^the WebMiner runs commands from "([^\"]*)"$/ do |dir|
+  web_miner.run_commands_in dir
 end
 
 # todo: this belongs in domain, but how to deal with 'global' var?
@@ -44,6 +44,17 @@ Then (/^there should be an? ([\S]*) with attribute values$/) do |class_name, tab
   attributes = {}
   table.raw.each {|name, value| attributes[name] = value}
   assert_object(class_name, attributes)
+end
+
+Then /^there should be a map$/ do |map_string|
+  expected_map = eval(map_string)
+  found = false
+  web_miner.results.each do |result|
+    if result.kind_of? Hash
+      found = true if result.eql? expected_map
+    end
+    raise "Map:\n #{expected_map} was not found in the results:\n #{web_miner.results.to_yaml}" if !found
+  end
 end
 
 # todo this is a mess - use pickle? else clean up in aisle 5
@@ -70,7 +81,7 @@ def assert_object(class_name, attributes)
     end
     found = true if attr_eql
   end
-  raise "object was not found in the results" if !found
+  raise "object:\n #{expected.to_yaml} was not found in the results:\n#{web_miner.results.to_yaml}" if !found
 end
 
 After('@creates_test_directories') do |scenario|

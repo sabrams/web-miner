@@ -123,9 +123,45 @@ Scenario: RSS feed with list of elements needed
   Then there should be an Event with attribute values "name": "Tonight at Bennighans"
   And there should be an Event with attribute values "name": "Tonight at Joes"
 
+@adds_world_wide_web
+@creates_test_directories
+Scenario: Create a simple map (no predefined classes to populate)
+  Given the following strategy file "strat_dir/strategy_to_create_simple_map.str":
+  """
+  new_strategy 'MAKE_A_MAP' do
+
+    requires_simple_get
+
+    create_map ({
+      'description' => '//p/text()'
+      })
+  end
+  """
+  And the following command file "command_dir/process_book_worm_rss.cmd":
+  """
+    digest "http://localhost:8080/events/102", "MAKE_A_MAP"
+  """
+  And a web world where a GET to "/events/102" returns
+  """
+  <html>
+    <body>
+      <p>An informative description about what is at Bennighans</p>
+    </body>
+  </html>
+  """
+  When the WebMiner is loaded with strategies from "strat_dir"
+  And the WebMiner runs commands from "command_dir"
+  Then there should be a map
+  """
+  {
+    'description' => 'An informative description about what is at Bennighans'
+  }
+  """
+
 
 @adds_world_wide_web
 @creates_test_directories
+@sandbox
 Scenario: Populate set of elements while following references
 Given the following strategy file "strat_dir/big_one.str":
 """
@@ -147,12 +183,11 @@ new_strategy 'LITTLE_ONE' do
 
   requires_simple_get
 
-  create 'WebMinerHash', {
+  create_map ({
     'description' => '//p/text()'
-    }
+    })
 end
 """
-
 And the following command file "command_dir/process_book_worm_rss.cmd":
 """
   digest "http://localhost:8080/event/rss", "BIG_ONE"
@@ -184,7 +219,6 @@ Then there should be an Event with attribute values
   | name        | Tonight at Bennighans |
   | description | A more informative description about what is at Bennighans |
 
-@sandbox
 @creates_test_directories
 Scenario: Nested strategy files in the strategy directory (happens to be using .str.rb extension)
 Given the following strategy file "strat_dir/SUBDIR1/SUBDIR2/some_strat.str.rb":

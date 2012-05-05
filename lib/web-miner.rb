@@ -8,6 +8,11 @@ module DSL
     @classes_to_create_with_mappings ||= {}
     @classes_to_create_with_mappings[class_name] = [attr_map, block]
   end
+  
+  def create_map(map, &block)
+    @maps_to_create ||= []
+    @maps_to_create << [map, block]
+  end
 
   def create_set(set_path, class_name, attr_map, &block)
     @create_set_mappings ||= {}
@@ -17,7 +22,6 @@ module DSL
   end
       
   def new_strategy(name, &block)
-    puts "path is, you know, #{@relative_path}"
     @strategies ||= {}
     # by passing self in, strategies have access to any other strategies loaded by "self" at runtime
     new_strat = MinerStrategy.new(self, name, @relative_path, &block)
@@ -36,23 +40,16 @@ module DSL
   # namespace within module to separate this method? (was MinerCommandDsl)
   def digest(url, strategy_name)
     @results ||= []
-    @results << @strategies[strategy_name].run(url) if @strategies
+    if @strategies && @strategies[strategy_name]
+      @results << @strategies[strategy_name].run(url) 
+    else
+      raise NotImplementedError, "#{strategy_name} strategy does not exist, options are: #{@strategies.keys}"
+    end
     @results.flatten!
   end
   
   def results
     @results
-  end
-end
-
-class WebMinerHash < Hash
-  def method_missing(m, *args, &block)
-    s = m.to_s
-    if s.end_with?("=")
-      self[s.chomp("=")]=args.first
-      return
-    end
-    super
   end
 end
 
@@ -76,17 +73,14 @@ class WebMiner
   
   #recursively load all strategy files ending with .str or .str.rb
   def load_strategies_from(dir_name)
-    
-    # y.relative_path_from(z).to_s.chomp y.basename.to_s
     glob_exprs = [File.join("#{dir_name}**/**", "*.str"), File.join("#{dir_name}**/**", "*.str.rb")]
     glob_exprs.each do |expr|
-      Dir.glob(expr).entries.each do |f|         
-        puts "here well #{File.split(f)}"
+      Dir.glob(expr).entries.each do |f| 
         relative_path = File.split(f)[0]
-        relative_path.slice! (dir_name+File::SEPARATOR)
-        puts "here its #{relative_path}"
-        relative_path = relative_path.gsub(File::SEPARATOR, ".") + "."
-        puts "rel path is  #{relative_path}"        
+        # slice twice to cover strategies at top level and nested strategies both
+        relative_path.slice! (dir_name)
+        relative_path.slice! (File::SEPARATOR)
+        relative_path = relative_path.gsub(File::SEPARATOR, ".") + "." if !relative_path.empty?        
         
         set_relative_path(relative_path)
         eval(File.read(f), get_binding)
@@ -200,7 +194,7 @@ class MinerStrategy
   end
 
   def something_to_create?
-    @classes_to_create_with_mappings || @create_set_mappings     
+    @classes_to_create_with_mappings || @create_set_mappings || @maps_to_create
   end
 
   def run(url)
@@ -208,6 +202,14 @@ class MinerStrategy
     update_resource url
 
     # todo: bring these in to some component of DSL, not general run
+    # create map
+    if @maps_to_create
+      @maps_to_create.each do |map, block|
+        map.each {|k, path| map[k] = get_value(path)}
+        block.call(map) if block
+        results << map
+      end
+    end
     # create
     if @classes_to_create_with_mappings
       @classes_to_create_with_mappings.each do |class_name, attr_map_and_block|
