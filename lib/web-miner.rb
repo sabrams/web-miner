@@ -44,7 +44,7 @@ module DSL
       results << strategies[strategy_name].run(url) 
       results.flatten!
     else
-      raise NotImplementedError, "#{strategy_name} strategy does not exist, options are: #{strategies ? "EMPTY" : strategies.keys}"
+      raise NotImplementedError, "#{strategy_name} strategy does not exist, options are: #{strategies.keys}"
     end
     results        
   end
@@ -101,7 +101,7 @@ class WebMiner
   def run_commands_in(dir_name)
     glob_exprs = [File.join("#{dir_name}**/**", "*.cmd"), File.join("#{dir_name}**/**", "*.cmd.rb")]
     glob_exprs.each do |expr|
-      Dir.glob(expr).entries.each { |f| eval(File.read(f))}      
+      Dir.glob(expr).entries.each {|f| eval(File.read(f))}
     end    
   end
 end
@@ -122,6 +122,7 @@ module MinerStrategyTemplates
         end
 
         def get_value(path)
+          puts "path is #{path}"
           return @res.xpath(path).to_s
         end
 
@@ -130,6 +131,7 @@ module MinerStrategyTemplates
         end
 
         def get_value_from(input, path)
+          puts "path is #{path}"
           return input.xpath(path).to_s
         end
       end
@@ -194,7 +196,10 @@ class MinerStrategy
     @my_name = namespace + my_name
     @context = context
     instance_eval(&block)
-    raise NotImplementedError, "The strategy needs at least one model to create. Use the 'create' or 'create_set' command to declare what models should be created." if !something_to_create?
+    if !something_to_create?
+      msg = "The strategy #{my_name} needs at least one model to create. Use the 'create','create_set','create_map command to declare what models should be created." 
+      raise NotImplementedError, msg
+    end
   end  
   
   def name
@@ -213,16 +218,23 @@ class MinerStrategy
     # create map
     if @maps_to_create
       @maps_to_create.each do |map, block|
-        map.each {|k, path| map[k] = get_value(path)}
-        block.call(map) if block
-        results << map
+        res = {}
+        map.each do |k, path| 
+          res[k] = get_value(path)
+          puts "WELL ACTUALLY ITS #{res[k]}"
+        end
+        block.call(res) if block
+        results << res
       end
     end
     # create
     if @classes_to_create_with_mappings
       @classes_to_create_with_mappings.each do |class_name, attr_map_and_block|
         attrs = {}
-        attr_map_and_block.first.each {|name, path| attrs[name] = get_value(path)}
+        attr_map_and_block.first.each do |name, path| 
+          attrs[name] = get_value(path)
+          puts "WELL ACTUALLY ITS #{attrs[name]}"
+        end          
         res = eval(class_name).new
         attrs.each {|name, value| res.send("#{name}=", value)}
         attr_map_and_block.last.call(res) if attr_map_and_block.last
@@ -240,6 +252,7 @@ class MinerStrategy
               attrs = {}
               attr_map_and_block.first.each do |name, path|
                 attrs[name] = get_value_from(object_data, path)
+                puts "WELL ACTUALLY ITS #{attrs[name]}"
               end
               res = eval(class_name).new
               attrs.each {|name, value| res.send("#{name}=", value)}
