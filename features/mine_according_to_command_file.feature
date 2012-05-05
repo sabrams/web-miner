@@ -17,7 +17,7 @@ Background:
     
 @adds_world_wide_web
 @creates_test_directories
-Scenario: Simple HTML document, strategy using XPath navigation
+Scenario: Simple HTML document, create a custom object from a strategy using XPath navigation
   Given the following strategy file "strat_dir/local_paper.str":
   """
   new_strategy "UPCOMING_EVENT_PAGE" do
@@ -35,7 +35,7 @@ Scenario: Simple HTML document, strategy using XPath navigation
   digest "http://localhost:8080/newspaper/this_weekend/article1", "UPCOMING_EVENT_PAGE"
   """
   # LOCAL_NEWSPAPER.UPCOMING_EVENT_PAGE
-  And a web world where a GET to "/newspaper/this_weekend/article1" returns
+  And a world wide web where a GET to "/newspaper/this_weekend/article1" returns
   """
   <html>
     <body>
@@ -52,7 +52,8 @@ Scenario: Simple HTML document, strategy using XPath navigation
   
 @adds_world_wide_web
 @creates_test_directories
-Scenario: HTML document with DOM-manipulating Javascript, strategy using DOM navigation
+Scenario: Sometimes a strategy needs access to the DOM after resource rendered by a browser. This can be done by specifying "requires_page_render"
+  This scenario shows how to process a DOM after it is manipulated by document-embedded Javascript on page load.
   Given the following strategy file "strat_dir/local_paper.str":
   """
   new_strategy "EVENT_PAGE_WITH_WEIRD_JAVASCRIPT_ACTIONS" do
@@ -68,7 +69,7 @@ Scenario: HTML document with DOM-manipulating Javascript, strategy using DOM nav
   """
   digest "http://localhost:8080/event/page/with/javascript/manipulation", "EVENT_PAGE_WITH_WEIRD_JAVASCRIPT_ACTIONS"
   """
-  And a web world where a GET to "/event/page/with/javascript/manipulation" returns
+  And a world wide web where a GET to "/event/page/with/javascript/manipulation" returns
   """
   <script type='text/javascript'>
   function add_title(txt){
@@ -87,7 +88,7 @@ Scenario: HTML document with DOM-manipulating Javascript, strategy using DOM nav
   
 @adds_world_wide_web
 @creates_test_directories
-Scenario: RSS feed with list of elements needed
+Scenario: RSS feed with list of elements need individual processing
   Given the following strategy file "strat_dir/book_worm_rss.str":
   """
   new_strategy 'BOOK_WORM_RSS' do
@@ -103,7 +104,7 @@ Scenario: RSS feed with list of elements needed
   """
     digest "http://localhost:8080/book/worm/rss", "BOOK_WORM_RSS"
   """
-  And a web world where a GET to "/book/worm/rss" returns
+  And a world wide web where a GET to "/book/worm/rss" returns
   """
   <?xml version="1.0" encoding="UTF-8"?>
     <rss version="0.92">
@@ -141,7 +142,7 @@ Scenario: Create a simple map (no predefined classes to populate)
   """
     digest "http://localhost:8080/events/102", "MAKE_A_MAP"
   """
-  And a web world where a GET to "/events/102" returns
+  And a world wide web where a GET to "/events/102" returns
   """
   <html>
     <body>
@@ -158,11 +159,11 @@ Scenario: Create a simple map (no predefined classes to populate)
   }
   """
 
-
 @adds_world_wide_web
 @creates_test_directories
 @sandbox
-Scenario: Populate set of elements while following references
+Scenario: Sometimes understanding the relationships of resources (through links) is necesary.
+  This scenario populates a set of elements while following references
 Given the following strategy file "strat_dir/big_one.str":
 """
 new_strategy 'BIG_ONE' do
@@ -192,7 +193,7 @@ And the following command file "command_dir/process_book_worm_rss.cmd":
 """
   digest "http://localhost:8080/event/rss", "BIG_ONE"
 """
-And a web world where a GET to "/event/rss" returns
+And a world wide web where a GET to "/event/rss" returns
 """
 <?xml version="1.0" encoding="UTF-8"?>
   <rss version="0.92">
@@ -205,7 +206,7 @@ And a web world where a GET to "/event/rss" returns
   </rss>
 </xml>
 """
-And a web world where a GET to "/events/102" returns
+And a world wide web where a GET to "/events/102" returns
 """
 <html>
   <body>
@@ -220,11 +221,10 @@ Then there should be an Event with attribute values
   | description | A more informative description about what is at Bennighans |
 
 @creates_test_directories
-Scenario: Nested strategy files in the strategy directory (happens to be using .str.rb extension)
+Scenario: Strategies can be organized by directory tree. When this is done, these strategies are named according to the directory layout. 
+  This scenario shows nested strategy files in the strategy directory (happens to be using .str.rb extension)
 Given the following strategy file "strat_dir/SUBDIR1/SUBDIR2/some_strat.str.rb":
 """
-
-#puts \"BOR#{@@relative_path} BOKS SBJKS\"
 new_strategy 'NESTED_NAME' do
 
   create 'PlaceHolderSoStratCreationIsntRejected', {
@@ -247,7 +247,7 @@ Then there should be a strategy called "SUBDIR1.SUBDIR2.NESTED_NAME"
 
 # @adds_world_wide_web
 # Scenario: 
-#   Given a web world where a GET to "/newspaper/this_weekend/article1" returns
+#   Given a world wide web where a GET to "/newspaper/this_weekend/article1" returns
 #   """
 #    "HELLO WORLD"
 #   """
@@ -265,7 +265,7 @@ Then there should be a strategy called "SUBDIR1.SUBDIR2.NESTED_NAME"
 #   digest http://localhost:8080/newspaper/this_weekend/article1 using local_newspaper_upcoming_event.ps
 #   
 #   """
-#   And a web world where a GET to "/newspaper/this_weekend/article1" returns "HELLO WORLD"
+#   And a world wide web where a GET to "/newspaper/this_weekend/article1" returns "HELLO WORLD"
 #   Then there should be an Event with:
 #   | name  | Laid back space rock - udder delight! |
 #   | bands | 0 | band...

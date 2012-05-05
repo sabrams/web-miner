@@ -3,7 +3,7 @@ require 'rack'
 require 'capybara/cucumber'
 require 'thin'
 
-Given /^a web world where a GET to "([^\"]*)" returns$/ do |path, content|
+Given /^a world wide web where a GET to "([^\"]*)" returns$/ do |path, content|
   add_to_web_world path, content
 end
 
