@@ -19,19 +19,10 @@ module DSL
     @create_set_mappings[set_path] ||= {}
     @create_set_mappings[set_path][class_name] ||= []
     @create_set_mappings[set_path][class_name] << [attr_map, block]
-  end
-      
-  def new_strategy(name, &block)
-    @strategies ||= {}
-    # by passing self in, strategies have access to any other strategies loaded by "self" at runtime
-    new_strat = MinerStrategy.new(self, name, @relative_path, &block)
-    @strategies[new_strat.name] = new_strat
-  end
-  
-  # todo: review this - not thread safe, at least! (but so what)
-  def set_relative_path(path)
-    @relative_path = path
-  end
+  end  
+end
+
+class WebMiner
   
   def strategies
     @strategies
@@ -49,6 +40,18 @@ module DSL
     results        
   end
   
+  def new_strategy(name, &block)
+    @strategies ||= {}
+    # by passing self in, strategies have access to any other strategies loaded by "self" at runtime
+    new_strat = MinerStrategy.new(self, name, @relative_path, &block)
+    @strategies[new_strat.name] = new_strat
+  end
+  
+  # todo: review this - not thread safe, at least! (but so what)
+  def set_relative_path(path)
+    @relative_path = path
+  end
+  
   # namespace within module to separate this method? (was MinerCommandDsl)
   def digest(url, strategy_name)
     @results ||= []
@@ -60,21 +63,6 @@ module DSL
   def results
     @results
   end
-end
-
-# class WebMinerBinding
-#   include DSL
-#   def initialize(relative_path)
-#     set_relative_path(relative_path)
-#   end
-# def get_binding
-  # return binding()
-# end  
-# 
-# end
-
-class WebMiner
-  include DSL #todo take this include out (split DSL module)  
   
   def get_binding
     return binding()
@@ -186,9 +174,13 @@ class MinerStrategy
   def get_value(path)
     raise NotImplementedError, "The strategy needs to know to proper way to load a resource"
   end
-    
+  
+  def digest(url, strategy_name)
+    @context.digest(url, strategy_name) # not really context...
+  end  
+  
   def strategies
-    @context.strategies if @context
+    @context.strategies
   end
   
   def initialize(context, my_name, namespace, &block)

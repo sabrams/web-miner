@@ -174,7 +174,7 @@ new_strategy 'BIG_ONE' do
     'name' => './/title/text()',
     'link' => './/more/text()'
     }, do |res|
-      res.description = run_strategy(res.link, "LITTLE_ONE").first['description']
+      res.description = digest(res.link, "LITTLE_ONE").first['description']
     end
 end
 """
