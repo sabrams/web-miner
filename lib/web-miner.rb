@@ -8,7 +8,7 @@ module DSL
     @classes_to_create_with_mappings ||= {}
     @classes_to_create_with_mappings[class_name] = [attr_map, block]
   end
-  
+
   def create_map(map, &block)
     @maps_to_create ||= []
     @maps_to_create << [map, block]
@@ -22,52 +22,78 @@ module DSL
   end  
 end
 
-class WebMiner
+# Struct.new("HistoryStruct", :url, :strategy_name, :results)
+History = Struct.new(:strategy_name, :url, :results, :children, :warnings)
+
+module MinerHistory
   
+  def keep_history
+    extend ClassMethods
+
+    @history = []
+  end
+
+  module ClassMethods
+
+    def history
+      @history
+    end
+
+    def digest(url, strategy_name)
+      @results ||= []
+      execution_context = MinerStrategyExecutionContext.new(strategy_name, url, @strategies)
+      execution_context.run
+      @history << execution_context.history
+      @results << execution_context.results
+      @results.flatten!
+    end
+
+  end
+end
+
+class WebMiner
+  include MinerHistory
+
   def strategies
     @strategies
   end
-  
-  #This will always return an array of results objects
-  def run_strategy(url, strategy_name)
-    results = []
-    if strategies && strategies[strategy_name]
-      results << strategies[strategy_name].run(url) 
-      results.flatten!
-    else
-      raise NotImplementedError, "#{strategy_name} strategy does not exist, options are: #{strategies.keys}"
-    end
-    results        
+
+  def initialize_strategy(name, &block)
+    # by passing self in, strategies have access to any other strategies loaded by "self" at runtime
+    MinerStrategy.new(self, name, @relative_path, &block)
   end
-  
+
   def new_strategy(name, &block)
     @strategies ||= {}
-    # by passing self in, strategies have access to any other strategies loaded by "self" at runtime
-    new_strat = MinerStrategy.new(self, name, @relative_path, &block)
+    new_strat = initialize_strategy(name, &block)
     @strategies[new_strat.name] = new_strat
   end
-  
+
   # todo: review this - not thread safe, at least! (but so what)
   def set_relative_path(path)
     @relative_path = path
   end
-  
-  # namespace within module to separate this method? (was MinerCommandDsl)
-  def digest(url, strategy_name)
-    @results ||= []
-    @results << run_strategy(url, strategy_name)
-    # debugger
-    @results.flatten!
-  end
-  
+
   def results
     @results
   end
-  
+
+  def digest(url, strategy_name)
+    @results ||= []
+    execution_context = MinerStrategyExecutionContext.new(strategy_name, url, @strategies)
+    execution_context.run
+    @results << execution_context.results
+    @results.flatten!
+  end
+
+  def results
+    @results
+  end
+
   def get_binding
     return binding()
   end
-  
+
   #recursively load all strategy files ending with .str or .str.rb
   def load_strategies_from(dir_name)
     glob_exprs = [File.join("#{dir_name}**/**", "*.str"), File.join("#{dir_name}**/**", "*.str.rb")]
@@ -78,7 +104,7 @@ class WebMiner
         relative_path.slice! (dir_name)
         relative_path.slice! (File::SEPARATOR)
         relative_path = relative_path.gsub(File::SEPARATOR, ".") + "." if !relative_path.empty?        
-        
+
         set_relative_path(relative_path)
         eval(File.read(f), get_binding)
       end
@@ -96,7 +122,7 @@ end
 
 module MinerStrategyTemplates
   module Http
-    
+
     # todo: analysis of content could determine proper parser, but need exceptions (like tendency for rss feeds to simply say xml instead of xml/rss)
     module Simple
 
@@ -109,28 +135,24 @@ module MinerStrategyTemplates
           @res = Nokogiri::HTML(open(url))
         end
 
-        def get_value(path)
+        def get_value(path, input = nil)
           puts "path is #{path}"
+          return input.xpath(path).to_s if input
           return @res.xpath(path).to_s
         end
 
         def get_nodes(path)
           return @res.xpath(path)
         end
-
-        def get_value_from(input, path)
-          puts "path is #{path}"
-          return input.xpath(path).to_s
-        end
       end
     end
 
-    
+
     module RSS
       def is_rss
         extend ClassMethods
       end
-      
+
       module ClassMethods
         include Simple::ClassMethods
       end
@@ -138,7 +160,7 @@ module MinerStrategyTemplates
     module Browser
       def requires_page_render
         extend ClassMethods
-        
+
         def update_resource(url)
           @res = Nokogiri::XML(open(url))
         end
@@ -161,6 +183,59 @@ module MinerStrategyTemplates
   end
 end
 
+class MinerStrategyExecutionContext
+
+  
+  def initialize(strategy_name, url, strategies, parent=nil)
+    # todo: change this error type, write test        
+    @strategy_name = strategy_name
+    @url = url
+    @parent = parent
+    @strategies = strategies
+  end
+
+  def history
+    @history
+  end
+  
+  def results
+    @results
+  end
+
+  def children
+    @children ||= []
+  end
+
+  def run()
+    @results ||= []
+    if @strategies && @strategies[@strategy_name]
+      strat = @strategies[@strategy_name]
+      parent_execution_context = self
+      strat.instance_eval do
+        @parent_execution_context = parent_execution_context
+        def digest(url, strategy_name)
+          # debugger
+
+          execution_context = MinerStrategyExecutionContext.new(strategy_name, url, @context.strategies, @parent_execution_context)
+          @parent_execution_context.children << execution_context
+          execution_context.run
+        end
+      end
+      @results << strat.run(@url)
+      @results.flatten!
+      children_histories = []
+      children.each do |child|
+        children_histories << child.history
+      end
+      @history = History.new(@strategy_name, @url, @results, children_histories)
+      @hist
+      @results
+    else
+      raise NotImplementedError, "#{@strategy_name} strategy does not exist, options are: #{@strategies.keys}"
+    end
+  end
+end
+
 class MinerStrategy
   include MinerStrategyTemplates::Http::Browser
   include MinerStrategyTemplates::Http::Simple
@@ -174,15 +249,12 @@ class MinerStrategy
   def get_value(path)
     raise NotImplementedError, "The strategy needs to know to proper way to load a resource"
   end
-  
+
   def digest(url, strategy_name)
-    @context.digest(url, strategy_name) # not really context...
-  end  
-  
-  def strategies
-    @context.strategies
+    execution_context = MinerStrategyExecutionContext.new(strategy_name, url, @context.strategies)
+    execution_context.run
   end
-  
+
   def initialize(context, my_name, namespace, &block)
     # todo: change this error type, write test        
     @my_name = namespace + my_name
@@ -193,7 +265,7 @@ class MinerStrategy
       raise NotImplementedError, msg
     end
   end  
-  
+
   def name
     @my_name
   end
@@ -223,7 +295,7 @@ class MinerStrategy
     if @classes_to_create_with_mappings
       @classes_to_create_with_mappings.each do |class_name, attr_map_and_block|
         attrs = {}
-        attr_map_and_block.first.each do |name, path| 
+        attr_map_and_block.first.each do |name, path|
           attrs[name] = get_value(path)
           puts "WELL ACTUALLY ITS #{attrs[name]}"
         end          
@@ -243,7 +315,7 @@ class MinerStrategy
             multi_object_data.each do |object_data|
               attrs = {}
               attr_map_and_block.first.each do |name, path|
-                attrs[name] = get_value_from(object_data, path)
+                attrs[name] = get_value(path, object_data)
                 puts "WELL ACTUALLY ITS #{attrs[name]}"
               end
               res = eval(class_name).new
@@ -255,7 +327,7 @@ class MinerStrategy
         end
       end
     end
-    return results
+    return results    
   end
 end
 

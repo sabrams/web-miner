@@ -7,11 +7,18 @@ Given /^a WebMiner instance$/ do
   web_miner
 end
 
+Given /^a WebMiner instance configured to keep a history of its mining activities$/ do
+  web_miner.keep_history
+end
 
 Then /^there should be a strategy called "([^\"]*)"$/ do |expected_name|
   wm = web_miner
   web_miner.strategies.should_not eql nil
   web_miner.strategies[expected_name].should_not eql nil
+end
+
+Then /^there should be a history \(expressed in YAML\):$/ do |text|
+  web_miner.history.should eql YAML::load(text.to_s)
 end
 
 When /^the WebMiner is loaded with strategies from "([^\"]*)"$/ do |dir_name|
@@ -89,7 +96,10 @@ After('@creates_test_directories') do |scenario|
 end
 
 def web_miner
-  @web_miner_instance ||= WebMiner.new
+  if !@web_miner_instance
+      @web_miner_instance = WebMiner.new
+  end
+  @web_miner_instance
 end
 
 def mark_dir_for_deletion_after_test(name)
