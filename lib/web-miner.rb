@@ -136,7 +136,6 @@ module MinerStrategyTemplates
         end
 
         def get_value(path, input = nil)
-          puts "path is #{path}"
           return input.xpath(path).to_s if input
           return @res.xpath(path).to_s
         end
@@ -214,8 +213,6 @@ class MinerStrategyExecutionContext
       strat.instance_eval do
         @parent_execution_context = parent_execution_context
         def digest(url, strategy_name)
-          # debugger
-
           execution_context = MinerStrategyExecutionContext.new(strategy_name, url, @context.strategies, @parent_execution_context)
           @parent_execution_context.children << execution_context
           execution_context.run
@@ -285,7 +282,6 @@ class MinerStrategy
         res = {}
         map.each do |k, path| 
           res[k] = get_value(path)
-          puts "WELL ACTUALLY ITS #{res[k]}"
         end
         block.call(res) if block
         results << res
@@ -297,7 +293,6 @@ class MinerStrategy
         attrs = {}
         attr_map_and_block.first.each do |name, path|
           attrs[name] = get_value(path)
-          puts "WELL ACTUALLY ITS #{attrs[name]}"
         end          
         res = eval(class_name).new
         attrs.each {|name, value| res.send("#{name}=", value)}
@@ -316,7 +311,6 @@ class MinerStrategy
               attrs = {}
               attr_map_and_block.first.each do |name, path|
                 attrs[name] = get_value(path, object_data)
-                puts "WELL ACTUALLY ITS #{attrs[name]}"
               end
               res = eval(class_name).new
               attrs.each {|name, value| res.send("#{name}=", value)}

@@ -18,7 +18,7 @@ Then /^there should be a strategy called "([^\"]*)"$/ do |expected_name|
 end
 
 Then /^there should be a history \(expressed in YAML\):$/ do |text|
-  web_miner.history.should eql YAML::load(text.to_s)
+  web_miner.history.should eq(YAML::load(text.to_s))
 end
 
 When /^the WebMiner is loaded with strategies from "([^\"]*)"$/ do |dir_name|

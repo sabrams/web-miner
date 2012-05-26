@@ -49,10 +49,11 @@ Scenario: Process a simple HTML document, creating a custom object from a strate
   And the WebMiner runs commands from "command_dir"
   Then there should be an Event with attribute values "name": "Laid back space rock - udder delight!"
   
+# Sometimes a strategy needs access to the DOM after resource rendered by a browser. This can be done by specifying "requires_page_render"
+
 @adds_world_wide_web
 @creates_test_directories
-Scenario: Sometimes a strategy needs access to the DOM after resource rendered by a browser. This can be done by specifying "requires_page_render"
-  This scenario shows how to process a DOM after it is manipulated by document-embedded Javascript on page load.
+Scenario: Processing a DOM after it is manipulated by document-embedded Javascript on page load.
   Given the following strategy file "strat_dir/local_paper.str":
   """
   new_strategy "EVENT_PAGE_WITH_WEIRD_JAVASCRIPT_ACTIONS" do
@@ -87,7 +88,7 @@ Scenario: Sometimes a strategy needs access to the DOM after resource rendered b
   
 @adds_world_wide_web
 @creates_test_directories
-Scenario: RSS feed with list of elements need individual processing
+Scenario: RSS feed with list of elements that each need individual processing
   Given the following strategy file "strat_dir/book_worm_rss.str":
   """
   new_strategy 'BOOK_WORM_RSS' do
@@ -158,10 +159,11 @@ Scenario: Create a simple map (no predefined classes to populate)
   }
   """
 
+#Sometimes understanding the relationships of resources (through links) is necesary.
+
 @adds_world_wide_web
 @creates_test_directories
-Scenario: Sometimes understanding the relationships of resources (through links) is necesary.
-  This scenario populates a set of elements while following references
+Scenario: Populate a set of elements while following references
 Given the following strategy file "strat_dir/big_one.str":
 """
 new_strategy 'BIG_ONE' do
@@ -218,9 +220,10 @@ Then there should be an Event with attribute values
   | name        | Tonight at Bennighans |
   | description | A more informative description about what is at Bennighans |
 
+#Strategies can be organized by directory tree. When this is done, these strategies are named according to the directory layout. 
+
 @creates_test_directories
-Scenario: Strategies can be organized by directory tree. When this is done, these strategies are named according to the directory layout. 
-  This scenario shows nested strategy files in the strategy directory (happens to be using .str.rb extension)
+Scenario: nested strategy files in the strategy directory (happen to be using .str.rb extension)
 Given the following strategy file "strat_dir/SUBDIR1/SUBDIR2/some_strat.str.rb":
 """
 new_strategy 'NESTED_NAME' do
