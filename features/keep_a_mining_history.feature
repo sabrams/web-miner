@@ -15,7 +15,6 @@ your_history = web_miner.history
 
 Background:
   Given a WebMiner instance configured to keep a history of its mining activities
-  And a domain class "Event" with attributes "name", "description", "link"
 
 @adds_world_wide_web
 @creates_test_directories
@@ -65,6 +64,7 @@ Scenario: Create a simple map, has history of success
 @adds_world_wide_web
 @creates_test_directories
 @pending
+@sandbox
 Scenario: Create a simple map, has history of failure
   Given the following strategy file "strat_dir/strategy_to_create_simple_map.str":
   """
@@ -81,7 +81,7 @@ Scenario: Create a simple map, has history of failure
   """
     digest "http://localhost:8080/events/102", "MAKE_A_MAP"
   """
-  And a world wide web where a GET to "/events/102" returns
+  And a world wide web where a GET to "http://localhost:8080/events/102" returns
   """
   <html>
     <body>
@@ -187,7 +187,6 @@ Scenario: Create a map from nested strategies, all successes
   
 # @adds_world_wide_web
 # @creates_test_directories
-# @sandbox2
 # Scenario: Create a map from nested strategies, all successes
 #   Given the following strategy file "strat_dir/big_one.str":
 #   """

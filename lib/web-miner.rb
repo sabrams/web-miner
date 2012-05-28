@@ -148,14 +148,13 @@ module MinerStrategyTemplates
 
 
     module RSS
+      include Simple
+      
       def is_rss
         extend ClassMethods
       end
-
-      module ClassMethods
-        include Simple::ClassMethods
-      end
     end
+    
     module Browser
       def requires_page_render
         extend ClassMethods
