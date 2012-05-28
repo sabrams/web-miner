@@ -23,7 +23,7 @@ Scenario: Using XPath, create an instance of a map from a simple HTML document
     is_html
     use_xpath
     
-    create_map ({
+    create "OpenStruct", ({
       "name" => "//title/text()",
       "link" => "//a/text()"
       })
@@ -45,13 +45,9 @@ Scenario: Using XPath, create an instance of a map from a simple HTML document
   """
   When the WebMiner is loaded with strategies from "strat_dir"
   And the WebMiner runs commands from "command_dir"
-  Then there should be a map
-  """
-  {
-    'name' => 'Laid back space rock - udder delight!',
-    'link' => 'http://link_to_event.html'
-  }
-  """
+  Then there should be an OpenStruct with attribute values
+    | name        | Laid back space rock - udder delight! |
+    | link        | http://link_to_event.html |
     
 @adds_world_wide_web
 @creates_test_directories
@@ -92,6 +88,7 @@ Scenario: Using XPath, create an instance of a custom class from a simple HTML d
 
 @adds_world_wide_web
 @creates_test_directories
+@map
 Scenario: Using XPath, process a document AFTER it is manipulated by document-embedded Javascript on a browser page load.
   Given the following strategy file "strat_dir/local_paper.str":
   """
@@ -180,6 +177,7 @@ Scenario: Using XPath, process an RSS feed with list of elements that each need 
 
 @adds_world_wide_web
 @creates_test_directories
+@map
 Scenario: Populate a set of elements using 'create_set' while following references
   Given a domain class "Event" with attributes "name", "description", "link"
   Given the following strategy file "strat_dir/big_one.str":

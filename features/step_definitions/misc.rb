@@ -2,6 +2,7 @@ require 'tempfile'
 require 'CSV'
 require 'ruby-debug'
 require 'fileutils'
+require 'ostruct'
 
 Given /^a WebMiner instance$/ do
   web_miner

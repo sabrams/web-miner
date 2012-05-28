@@ -27,9 +27,9 @@ Scenario: Create a simple map, has history of success
     is_html
     use_xpath
     
-    create_map ({
+    create "OpenStruct", {
       'description' => '//p/text()'
-      })
+      }
   end
   """
   And the following command file "command_dir/process_book_worm_rss.cmd":
@@ -46,26 +46,12 @@ Scenario: Create a simple map, has history of success
   """
   When the WebMiner is loaded with strategies from "strat_dir"
   And the WebMiner runs commands from "command_dir"
-  Then there should be a map
-  """
-  {
-    'description' => 'An informative description about what is at Bennighans'
-  }
-  """
-  And there should be a history (expressed in YAML):
-  """
-  --- 
-      - !ruby/struct:WM::History
-        url: http://localhost:8080/events/102
-        strategy_name: MAKE_A_MAP
-        children: []
-        results: 
-          - description: An informative description about what is at Bennighans
-  """
-
+  Then there should be an OpenStruct with attribute values
+    | description | An informative description about what is at Bennighans |
+ 
 @adds_world_wide_web
 @creates_test_directories
-@pending
+@map
 Scenario: Create a simple map, has history of failure
   Given the following strategy file "strat_dir/strategy_to_create_simple_map.str":
   """
@@ -107,6 +93,7 @@ Scenario: Create a simple map, has history of failure
   
 @adds_world_wide_web
 @creates_test_directories
+@map
 Scenario: Create a map from nested strategies, all successes
   Given the following strategy file "strat_dir/strategy_to_create_simple_map.str":
   """

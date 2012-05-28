@@ -2,6 +2,7 @@ require 'nokogiri'
 require 'capybara'
 require 'find'
 require 'open-uri'
+require 'ostruct'
 
 module WM
 
@@ -21,13 +22,19 @@ module WM
 
       def digest(url, strategy_name)
         @results ||= []
-        execution_context = MinerStrategyExecutionContext.new(strategy_name, url, @strategies)
+        execution_context = ExecutionContext.new(strategy_name, url, @strategies)
         execution_context.run
         @history << execution_context.history
         @results << execution_context.results
         @results.flatten!
       end
-
+      
+      class MinerStrategy
+        def digest(url, strategy_name)
+          execution_context = ExecutionContext.new(strategy_name, url, @context.strategies)
+          execution_context.run
+        end
+      end
     end
   end
 
@@ -60,9 +67,7 @@ module WM
 
     def digest(url, strategy_name)
       @results ||= []
-      execution_context = MinerStrategyExecutionContext.new(strategy_name, url, @strategies)
-      execution_context.run
-      @results << execution_context.results
+      @results << @strategies[strategy_name].run(url)
       @results.flatten!
     end
 
@@ -103,7 +108,7 @@ module WM
   # Struct.new("HistoryStruct", :url, :strategy_name, :results)
   History = Struct.new(:strategy_name, :url, :results, :children, :warnings)
 
-  class MinerStrategyExecutionContext
+  class ExecutionContext
 
     def initialize(strategy_name, url, strategies, parent=nil)
       # todo: change this error type, write test        
@@ -133,7 +138,7 @@ module WM
         strat.instance_eval do
           @parent_execution_context = parent_execution_context
           def digest(url, strategy_name)
-            execution_context = MinerStrategyExecutionContext.new(strategy_name, url, @context.strategies, @parent_execution_context)
+            execution_context = ExecutionContext.new(strategy_name, url, @context.strategies, @parent_execution_context)
             @parent_execution_context.children << execution_context
             execution_context.run
           end
@@ -154,21 +159,45 @@ module WM
   end
 
   module DSL
+    
+    # # create map
+    # if @maps_to_create
+    #   @maps_to_create.each do |map, block|
+    #     res = {}
+    #     map.each do |k, path| 
+    #       res[k] = get_value(path)
+    #     end
+    #     block.call(res) if block
+    #     results << res
+    #   end
+    # end
+    # create
     def create(class_name, attr_map, &block)
-      @classes_to_create_with_mappings ||= {}
-      @classes_to_create_with_mappings[class_name] = [attr_map, block]
+      @creation_commands << lambda do |results| 
+        attrs = {}
+        attr_map.each do |name, path|
+          attrs[name] = get_value(path)
+        end          
+        res = eval(class_name).new
+        attrs.each {|name, value| res.send("#{name}=", value)}
+        block.call(res) if block
+        results << res
+      end
     end
-
-    def create_map(map, &block)
-      @maps_to_create ||= []
-      @maps_to_create << [map, block]
-    end
-
+  
     def create_set(set_path, class_name, attr_map, &block)
-      @create_set_mappings ||= {}
-      @create_set_mappings[set_path] ||= {}
-      @create_set_mappings[set_path][class_name] ||= []
-      @create_set_mappings[set_path][class_name] << [attr_map, block]
+      # requires get_nodes
+      @creation_commands << lambda do |results|
+        multi_object_data = get_nodes(set_path)
+        multi_object_data.each do |data|
+          attrs = {}
+          attr_map.each {|name, path| attrs[name] = get_value(path, data)}
+          res = eval(class_name).new
+          attrs.each {|name, value| res.send("#{name}=", value)}
+          block.call(res) if block
+          results << res
+        end
+      end
     end  
     
     module DocumentTraveral
@@ -253,14 +282,14 @@ module WM
     end
 
     def digest(url, strategy_name)
-      execution_context = MinerStrategyExecutionContext.new(strategy_name, url, @context.strategies)
-      execution_context.run
+      @context.strategies[strategy_name].run(url)
     end
 
     def initialize(context, my_name, namespace, &block)
       # todo: change this error type, write test        
       @my_name = namespace + my_name
       @context = context
+      @creation_commands = []
       instance_eval(&block)
       if !something_to_create?
         msg = "The strategy #{my_name} needs at least one model to create. Use the 'create','create_set','create_map command to declare what models should be created." 
@@ -273,59 +302,15 @@ module WM
     end
 
     def something_to_create?
-      @classes_to_create_with_mappings || @create_set_mappings || @maps_to_create
+      !@creation_commands.empty?
     end
 
     def run(url)
       results = []
       update_resource url
+      
+      @creation_commands.each {|cmd| cmd.call(results)}
 
-      # todo: bring these in to some component of DSL, not general run
-      # create map
-      if @maps_to_create
-        @maps_to_create.each do |map, block|
-          res = {}
-          map.each do |k, path| 
-            res[k] = get_value(path)
-          end
-          block.call(res) if block
-          results << res
-        end
-      end
-      # create
-      if @classes_to_create_with_mappings
-        @classes_to_create_with_mappings.each do |class_name, attr_map_and_block|
-          attrs = {}
-          attr_map_and_block.first.each do |name, path|
-            attrs[name] = get_value(path)
-          end          
-          res = eval(class_name).new
-          attrs.each {|name, value| res.send("#{name}=", value)}
-          attr_map_and_block.last.call(res) if attr_map_and_block.last
-          results << res
-        end
-      end
-      # create_set
-      if @create_set_mappings
-        @create_set_mappings.each do |set_path, mappings|
-          mappings.each do |class_name, attr_map_array|
-            attr_map_array.each do |attr_map_and_block|
-              attrs = {}
-              multi_object_data = get_nodes(set_path)
-              multi_object_data.each do |object_data|
-                attrs = {}
-                attr_map_and_block.first.each do |name, path|
-                  attrs[name] = get_value(path, object_data)
-                end
-                res = eval(class_name).new
-                attrs.each {|name, value| res.send("#{name}=", value)}
-                attr_map_and_block.last.call(res) if attr_map_and_block.last
-                results << res
-              end
-            end
-          end
-        end
-      end
       return results    
     end
   end
