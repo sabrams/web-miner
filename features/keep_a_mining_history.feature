@@ -4,9 +4,9 @@ I want a history recorded for actions taken by my strategies
 So that I can learn about what has been happening with dynamically changing web content and respond accordingly
 
 Synopsis:
-require web-miner
+require miner
 
-web_miner = WebMiner.new
+web_miner = WM::Miner.new
 web_miner.keep_history
 web_miner.load_strategies_from("your_strategies")  # each file ends with .str or .str.rb. 
 web_miner.run_commands_in("your_commands") # each file ends with .str or .cmd.rb
@@ -20,11 +20,13 @@ Background:
 @creates_test_directories
 Scenario: Create a simple map, has history of success
   Given the following strategy file "strat_dir/strategy_to_create_simple_map.str":
+  
   """
   new_strategy 'MAKE_A_MAP' do
 
-    requires_simple_get
-
+    is_html
+    use_xpath
+    
     create_map ({
       'description' => '//p/text()'
       })
@@ -53,7 +55,7 @@ Scenario: Create a simple map, has history of success
   And there should be a history (expressed in YAML):
   """
   --- 
-      - !ruby/struct:History
+      - !ruby/struct:WM::History
         url: http://localhost:8080/events/102
         strategy_name: MAKE_A_MAP
         children: []
@@ -64,13 +66,13 @@ Scenario: Create a simple map, has history of success
 @adds_world_wide_web
 @creates_test_directories
 @pending
-@sandbox
 Scenario: Create a simple map, has history of failure
   Given the following strategy file "strat_dir/strategy_to_create_simple_map.str":
   """
   new_strategy 'MAKE_A_MAP' do
 
-    requires_simple_get
+    is_html
+    use_xpath
 
     create_map ({
       'description' => '//p/text()'
@@ -93,7 +95,7 @@ Scenario: Create a simple map, has history of failure
   Then there should be a history (expressed in YAML):
   """
   --- 
-      - !ruby/struct:History
+      - !ruby/struct:WM::History
         url: http://localhost:8080/events/102
         strategy_name: MAKE_A_MAP
         children: []
@@ -110,7 +112,8 @@ Scenario: Create a map from nested strategies, all successes
   """
   new_strategy 'STRAT_1' do
 
-    requires_simple_get
+    is_html
+    use_xpath
 
     create_map ({
       'name' => '//p/text()',
@@ -124,7 +127,8 @@ Scenario: Create a map from nested strategies, all successes
   """
   new_strategy 'NESTED_STRATEGY' do
 
-    requires_simple_get
+    is_html
+    use_xpath
 
     create_map ({
       'description' => '//p/text()',
@@ -165,7 +169,7 @@ Scenario: Create a map from nested strategies, all successes
   And there should be a history (expressed in YAML):
   """
   --- 
-      - !ruby/struct:History
+      - !ruby/struct:WM::History
         url: http://localhost:8080/events/102
         strategy_name: STRAT_1
         results: 
@@ -174,7 +178,7 @@ Scenario: Create a map from nested strategies, all successes
             link: http://localhost:8080/events/102/more
             description: An informative description about the super event
         children:
-          - !ruby/struct:History
+          - !ruby/struct:WM::History
             strategy_name: NESTED_STRATEGY
             url: http://localhost:8080/events/102/more
             results:

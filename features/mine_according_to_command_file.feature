@@ -3,9 +3,9 @@ In order to allow a quick creation of a web mining strategy
 I want to be able to run command files writen in a DSL 
 
 Synopsis:
-require web-miner
+require miner
 
-web_miner = WebMiner.new
+web_miner = WM::Miner.new
 web_miner.load_strategies_from("your_strategies")  # each file ends with .str or .str.rb. 
 web_miner.run_commands_in("your_commands") # each file ends with .str or .cmd.rb
 your_results = web_miner.results
@@ -20,8 +20,9 @@ Scenario: Using XPath, create an instance of a map from a simple HTML document
   """
   new_strategy "UPCOMING_EVENT_PAGE" do
 
-    requires_simple_get
-
+    is_html
+    use_xpath
+    
     create_map ({
       "name" => "//title/text()",
       "link" => "//a/text()"
@@ -60,7 +61,8 @@ Scenario: Using XPath, create an instance of a custom class from a simple HTML d
   """
   new_strategy "UPCOMING_EVENT_PAGE" do
     
-    requires_simple_get
+    is_html
+    use_xpath
     
     create "Event", {
       "name" => "//title/text()",
@@ -95,8 +97,9 @@ Scenario: Using XPath, process a document AFTER it is manipulated by document-em
   """
   new_strategy "EVENT_PAGE_WITH_WEIRD_JAVASCRIPT_ACTIONS" do
 
-    requires_page_render
-    
+    is_html_requiring_page_render
+    use_xpath
+        
     create_map ({
       "name" => "//title/text()"
     })
@@ -139,6 +142,7 @@ Scenario: Using XPath, process an RSS feed with list of elements that each need 
   new_strategy 'BOOK_WORM_RSS' do
     
     is_rss
+    use_xpath
     
     create_set '//rss/events/event', 'Event', {
       'name' => './/title/text()'
@@ -183,6 +187,7 @@ Scenario: Populate a set of elements using 'create_set' while following referenc
   new_strategy 'BIG_ONE' do
 
     is_rss
+    use_xpath
 
     create_set '//rss/events/event', 'Event', {
       'name' => './/title/text()',
@@ -196,7 +201,8 @@ Scenario: Populate a set of elements using 'create_set' while following referenc
   """
   new_strategy 'LITTLE_ONE' do
 
-    requires_simple_get
+    is_html
+    use_xpath
 
     create_map ({
       'description' => '//p/text()'

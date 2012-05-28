@@ -1,1 +1,1 @@
-require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'web-miner')
+require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'miner')

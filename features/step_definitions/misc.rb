@@ -97,7 +97,7 @@ end
 
 def web_miner
   if !@web_miner_instance
-      @web_miner_instance = WebMiner.new
+      @web_miner_instance = WM::Miner.new
   end
   @web_miner_instance
 end
