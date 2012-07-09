@@ -103,6 +103,7 @@ module WM
         module ClassMethods
           def get_value(path, input = nil)
             return input.xpath(path).to_s if input
+            # debugger
             return @res.xpath(path).to_s
           end
 
@@ -140,6 +141,7 @@ module WM
               Capybara::Selenium::Driver.new(app, :browser => :chrome)
             end
             session = Capybara::Session.new(:selenium)
+            puts "Visiting #{url}"
             session.visit(url)
             @res = Nokogiri::HTML(session.body)
           end
@@ -177,7 +179,8 @@ module WM
     
     #What about a cpmposite for these methods where dec is useful? or extend this class
     # hook for decorators
-    def g_v(path)
+    def g_v(path, input=nil)
+      # return get_value(path, input) if !input.nil?
       get_value(path)
     end
     
@@ -218,7 +221,13 @@ module WM
         update_resource url
       end
       
-      @creation_commands.each {|cmd| cmd.call(results)}
+      @creation_commands.each do |cmd|
+        begin
+           cmd.call(results)
+        rescue 
+          puts "Whoops! #{$!}"  
+        end
+      end
 
       return results
     end

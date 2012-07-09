@@ -8,8 +8,13 @@ module WM
   class MinerStrategyForHistoryDecorator < MinerStrategy
     
     def g_v(path)
-      res = super(path)
-      @history.warnings << "Did not find value for '#{path}'" if res.nil? || (res.respond_to?('empty?') && res.empty?)
+      err = ""
+      begin
+        res = super(path)
+      rescue RuntimeError, NoMethodError
+        err = $!
+      end
+      @history.warnings << "Did not find value for '#{path}'#{", error: #{err}" if !err.nil?}" if res.nil? || (res.respond_to?('empty?') && res.empty?)
       res
     end
     

@@ -1,2 +1,2 @@
-require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'miner')
-require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'miner_history')
+require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'wm')
+require File.join(File.dirname(__FILE__), '..', '..', 'lib', 'wm-history')
