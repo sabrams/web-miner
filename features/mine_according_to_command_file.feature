@@ -122,7 +122,7 @@ Scenario: Using XPath, process a document after it is manipulated by document-em
   """
   When the WebMiner is loaded with strategies from "strat_dir"
   And the WebMiner runs commands from "command_dir"
-  Then there should be an Event with attribute values "name": "Laid back space rock - udder delight!", "link": "http://link_to_event.html"
+  Then there should be an Event with attribute values "name": "The Funky Monkeys, Tonight!", "link": "http://link_to_event.html"
   
 # To create sets of data, use 'create_set' method
 
@@ -174,7 +174,6 @@ Scenario: Using XPath, process an RSS feed with list of elements that each need 
 
 @adds_world_wide_web
 @creates_test_directories
-@map
 @set
 Scenario: Populate a set of elements using 'create_set' while following references
   Given a domain class "Event" with attributes "name", "description", "link"
@@ -189,7 +188,7 @@ Scenario: Populate a set of elements using 'create_set' while following referenc
       'name' => './/title/text()',
       'link' => './/more/text()'
       }, do |res|
-        res.description = digest(res.link, "LITTLE_ONE").first['description']
+        res.description = digest(res.link, "LITTLE_ONE").first.description
       end
   end
   """
@@ -200,7 +199,7 @@ Scenario: Populate a set of elements using 'create_set' while following referenc
     is_html
     use_xpath
 
-    create_map ({
+    create "OpenStruct", ({
       'description' => '//p/text()'
       })
   end
@@ -235,7 +234,6 @@ Scenario: Populate a set of elements using 'create_set' while following referenc
   Then there should be an Event with attribute values
     | name        | Tonight at Bills |
     | description | A more informative description about what is at Bills |
-# Then there should be an Event with attribute values "name": "Tonight at Bennighans","description": "A more informative description about what is at Bennighans"
 
 #Strategies can be organized by directory tree. When this is done, these strategies are named according to the directory layout. 
 

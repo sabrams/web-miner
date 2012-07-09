@@ -36,8 +36,8 @@ end
 
 Then /^there should be a strategy called "([^\"]*)"$/ do |expected_name|
   wm = web_miner
-  web_miner.strategies.should_not eql nil
-  web_miner.strategies[expected_name].should_not eql nil
+  web_miner.strategies.should_not be_nil
+  web_miner.strategies[expected_name].should_not be_nil
 end
 
 Then /^there should be a history \(expressed in YAML\):$/ do |text|
