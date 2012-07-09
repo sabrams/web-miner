@@ -15,7 +15,7 @@ Background:
 
 @adds_world_wide_web
 @creates_test_directories
-Scenario: Using XPath, create an instance of a map from a simple HTML document
+Scenario: Using XPath, create an instance of a OpenStruct from a simple HTML document
   Given the following strategy file "strat_dir/local_paper.str":
   """
   new_strategy "UPCOMING_EVENT_PAGE" do
@@ -88,8 +88,7 @@ Scenario: Using XPath, create an instance of a custom class from a simple HTML d
 
 @adds_world_wide_web
 @creates_test_directories
-@map
-Scenario: Using XPath, process a document AFTER it is manipulated by document-embedded Javascript on a browser page load.
+Scenario: Using XPath, process a document after it is manipulated by document-embedded Javascript on a browser page load.
   Given the following strategy file "strat_dir/local_paper.str":
   """
   new_strategy "EVENT_PAGE_WITH_WEIRD_JAVASCRIPT_ACTIONS" do
@@ -97,8 +96,9 @@ Scenario: Using XPath, process a document AFTER it is manipulated by document-em
     is_html_requiring_page_render
     use_xpath
         
-    create_map ({
-      "name" => "//title/text()"
+    create "Event", ({
+      "name" => "//title/text()",
+      "link" => "//a/text()"
     })
   end
   """
@@ -116,22 +116,19 @@ Scenario: Using XPath, process a document AFTER it is manipulated by document-em
   <html>
     <body onload="add_title('The Funky Monkeys, Tonight!');">
       <title></title>
+	  <a>http://link_to_event.html</a>
     </body>
   </html>
   """
   When the WebMiner is loaded with strategies from "strat_dir"
   And the WebMiner runs commands from "command_dir"
-  Then there should be a map
-  """
-  {
-    'name' => 'The Funky Monkeys, Tonight!'
-  }
-  """
+  Then there should be an Event with attribute values "name": "Laid back space rock - udder delight!", "link": "http://link_to_event.html"
   
 # To create sets of data, use 'create_set' method
 
 @adds_world_wide_web
 @creates_test_directories
+@set
 Scenario: Using XPath, process an RSS feed with list of elements that each need individual processing
   Given a domain class "Event" with attributes "name", "link"
   And the following strategy file "strat_dir/book_worm_rss.str":
@@ -178,6 +175,7 @@ Scenario: Using XPath, process an RSS feed with list of elements that each need 
 @adds_world_wide_web
 @creates_test_directories
 @map
+@set
 Scenario: Populate a set of elements using 'create_set' while following references
   Given a domain class "Event" with attributes "name", "description", "link"
   Given the following strategy file "strat_dir/big_one.str":

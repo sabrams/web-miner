@@ -3,56 +3,20 @@ require 'capybara'
 require 'find'
 require 'open-uri'
 require 'ostruct'
+require 'uri'
 
 module WM
 
-  module MinerHistory
-  
-    def keep_history
-      extend ClassMethods
-
-      @history = []
-    end
-
-    module ClassMethods
-
-      def history
-        @history
-      end
-
-      def digest(url, strategy_name)
-        @results ||= []
-        execution_context = ExecutionContext.new(strategy_name, url, @strategies)
-        execution_context.run
-        @history << execution_context.history
-        @results << execution_context.results
-        @results.flatten!
-      end
-      
-      class MinerStrategy
-        def digest(url, strategy_name)
-          execution_context = ExecutionContext.new(strategy_name, url, @context.strategies)
-          execution_context.run
-        end
-      end
-    end
-  end
-
   class Miner
-    include MinerHistory
 
     def strategies
       @strategies
     end
 
-    def initialize_strategy(name, &block)
-      # by passing self in, strategies have access to any other strategies loaded by "self" at runtime
-      MinerStrategy.new(self, name, @relative_path, &block)
-    end
-
     def new_strategy(name, &block)
       @strategies ||= {}
-      new_strat = initialize_strategy(name, &block)
+      # by passing self in, strategies have access to any other strategies loaded by "self" at runtime
+      new_strat = MinerStrategy.new(self, name, @relative_path, &block)
       @strategies[new_strat.name] = new_strat
     end
 
@@ -67,30 +31,26 @@ module WM
 
     def digest(url, strategy_name)
       @results ||= []
-      @results << @strategies[strategy_name].run(url)
+      @results << @strategies[strategy_name].run(url, self)
       @results.flatten!
-    end
-
-    def results
-      @results
     end
 
     def get_binding
       return binding()
     end
 
-    #recursively load all strategy files ending with .str or .str.rb
+    #recursively load all strategy files ending with .str or .str.rb. Use directory paths as part of strategy names
     def load_strategies_from(dir_name)
       glob_exprs = [File.join("#{dir_name}**/**", "*.str"), File.join("#{dir_name}**/**", "*.str.rb")]
       glob_exprs.each do |expr|
         Dir.glob(expr).entries.each do |f|
-          relative_path = File.split(f)[0]
+          rel_path = File.split(f)[0]
           # slice twice to cover strategies at top level and nested strategies both
-          relative_path.slice! (dir_name)
-          relative_path.slice! (File::SEPARATOR)
-          relative_path = relative_path.gsub(File::SEPARATOR, ".") + "." if !relative_path.empty?        
+          rel_path.slice! (dir_name)
+          rel_path.slice! (File::SEPARATOR)
+          rel_path = rel_path.gsub(File::SEPARATOR, ".") + "." if !rel_path.empty?        
 
-          set_relative_path(relative_path)
+          set_relative_path(rel_path)
           eval(File.read(f), get_binding)
         end
       end
@@ -104,79 +64,13 @@ module WM
       end    
     end
   end
-
-  # Struct.new("HistoryStruct", :url, :strategy_name, :results)
-  History = Struct.new(:strategy_name, :url, :results, :children, :warnings)
-
-  class ExecutionContext
-
-    def initialize(strategy_name, url, strategies, parent=nil)
-      # todo: change this error type, write test        
-      @strategy_name = strategy_name
-      @url = url
-      @parent = parent
-      @strategies = strategies
-    end
-
-    def history
-      @history
-    end
   
-    def results
-      @results
-    end
-
-    def children
-      @children ||= []
-    end
-
-    def run()
-      @results ||= []
-      if @strategies && @strategies[@strategy_name]
-        strat = @strategies[@strategy_name]
-        parent_execution_context = self
-        strat.instance_eval do
-          @parent_execution_context = parent_execution_context
-          def digest(url, strategy_name)
-            execution_context = ExecutionContext.new(strategy_name, url, @context.strategies, @parent_execution_context)
-            @parent_execution_context.children << execution_context
-            execution_context.run
-          end
-        end
-        @results << strat.run(@url)
-        @results.flatten!
-        children_histories = []
-        children.each do |child|
-          children_histories << child.history
-        end
-        @history = History.new(@strategy_name, @url, @results, children_histories)
-        @hist
-        @results
-      else
-        raise NotImplementedError, "#{@strategy_name} strategy does not exist, options are: #{@strategies.keys}"
-      end
-    end
-  end
-
   module DSL
-    
-    # # create map
-    # if @maps_to_create
-    #   @maps_to_create.each do |map, block|
-    #     res = {}
-    #     map.each do |k, path| 
-    #       res[k] = get_value(path)
-    #     end
-    #     block.call(res) if block
-    #     results << res
-    #   end
-    # end
-    # create
     def create(class_name, attr_map, &block)
       @creation_commands << lambda do |results| 
         attrs = {}
         attr_map.each do |name, path|
-          attrs[name] = get_value(path)
+          attrs[name] = g_v(path)
         end          
         res = eval(class_name).new
         attrs.each {|name, value| res.send("#{name}=", value)}
@@ -200,7 +94,7 @@ module WM
       end
     end  
     
-    module DocumentTraveral
+    module DocumentTraversal
       module XPath
         def use_xpath
           extend ClassMethods
@@ -228,7 +122,7 @@ module WM
         end
         
         def is_html_requiring_page_render
-          extend ClassMethods
+          # extend ClassMethods
           extend PageRenderClassMethods
         end
                 
@@ -271,7 +165,7 @@ module WM
     include DSL
     include DSL::ContentType::HTML
     include DSL::ContentType::RSS
-    include DSL::DocumentTraveral::XPath
+    include DSL::DocumentTraversal::XPath
 
     def update_resource(url)
       raise NotImplementedError, "The strategy needs to know to proper way to load a resource"
@@ -280,9 +174,20 @@ module WM
     def get_value(path)
       raise NotImplementedError, "The strategy needs to know to proper way to process a resource"
     end
+    
+    #What about a cpmposite for these methods where dec is useful? or extend this class
+    # hook for decorators
+    def g_v(path)
+      get_value(path)
+    end
+    
+    # Supporting chained context
+    def strategies
+      @context.strategies
+    end
 
     def digest(url, strategy_name)
-      @context.strategies[strategy_name].run(url)
+      @context.strategies[strategy_name].run(url, self)
     end
 
     def initialize(context, my_name, namespace, &block)
@@ -295,8 +200,8 @@ module WM
         msg = "The strategy #{my_name} needs at least one model to create. Use the 'create','create_set','create_map command to declare what models should be created." 
         raise NotImplementedError, msg
       end
-    end  
-
+    end
+    
     def name
       @my_name
     end
@@ -305,13 +210,17 @@ module WM
       !@creation_commands.empty?
     end
 
-    def run(url)
+    # no good reason for run_context without the history aspect...
+    def run(url, run_context)
       results = []
-      update_resource url
+
+      unless (url =~ URI::regexp).nil?
+        update_resource url
+      end
       
       @creation_commands.each {|cmd| cmd.call(results)}
 
-      return results    
+      return results
     end
   end
 

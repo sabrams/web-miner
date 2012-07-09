@@ -3,13 +3,35 @@ require 'CSV'
 require 'ruby-debug'
 require 'fileutils'
 require 'ostruct'
+require 'json'
+require 'json/add/core'
+
+class OpenStruct
+   # found online
+    def to_map
+      map = Hash.new
+      self.instance_variable_get("@table").keys.each { |k| map[k] = self.send(k) }
+      map
+    end
+
+    # found online    
+    def to_json(*a)
+      to_map.to_json(*a)
+    end
+    
+    def self.from_map(map)
+      res = History.new()
+      map.keys.each { |k| res.send("#{k}=", map[k])}
+      res
+    end
+end
 
 Given /^a WebMiner instance$/ do
   web_miner
 end
 
 Given /^a WebMiner instance configured to keep a history of its mining activities$/ do
-  web_miner.keep_history
+  web_miner(true)
 end
 
 Then /^there should be a strategy called "([^\"]*)"$/ do |expected_name|
@@ -20,6 +42,11 @@ end
 
 Then /^there should be a history \(expressed in YAML\):$/ do |text|
   web_miner.history.should eq(YAML::load(text.to_s))
+end
+
+Then /^there should be a history \(expressed in JSON\):$/ do |string|
+    # todo don't index here check whole array
+  web_miner.history[0].should eq(WM::History.from_map(JSON.parse(JSON.pretty_generate web_miner.history)[0]))
 end
 
 When /^the WebMiner is loaded with strategies from "([^\"]*)"$/ do |dir_name|
@@ -65,6 +92,30 @@ Then /^there should be a map$/ do |map_string|
   end
 end
 
+Then /^the WebMiner should have a History with attribute values$/ do |table|
+  history = web_miner.history.first
+  assert_object_class_and_attributes_from_table(table, "WM::History", history)
+  @last_history = history
+end
+
+def assert_object_class_and_attributes_from_table(table, class_name, object)
+  attributes = {}
+  # table.raw.each {|n, v| puts attributes[n] = v}
+  raise "expected type '#{class_name}' but was type: '#{object.class}'" if eval(class_name) != object.class
+  attributes.each {|n, v| raise "expected attribute '#{n}' to be '#{v}' but was '#{object.send(n)}'" if !object.send(n).eql? v}
+end
+
+Then /^that WebMiner History should have a child History with attribute values$/ do |table|
+  # table is a Cucumber::Ast::Table
+  child_history = @last_history.children.first
+  assert_object_class_and_attributes_from_table(table, "WM::History", child_history)
+  @last_history = child_history
+end
+
+Then /^that WebMiner History should have the warning "(.*?)"$/ do |warning|
+  @last_history.warnings.member?(warning)
+end
+
 # todo this is a mess - use pickle? else clean up in aisle 5
 Then (/^there should be an? ([\S]*) (#{ATTRIBUTE_VALUES})$/) do |class_name, attributes|
   assert_object(class_name, attributes)
@@ -96,9 +147,9 @@ After('@creates_test_directories') do |scenario|
   delete_test_data_directories
 end
 
-def web_miner
+def web_miner(historic=false)
   if !@web_miner_instance
-      @web_miner_instance = WM::Miner.new
+      @web_miner_instance = historic ? WM::HistoryAwareMiner.new : WM::Miner.new
   end
   @web_miner_instance
 end
